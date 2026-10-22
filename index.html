@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>어비스의 생일을 축하합니다!</title>
+<meta name="description" content="10월 23일, 어비스의 생일을 다목이들이 함께 축하하는 메시지 게시판">
+<meta property="og:title" content="어비스의 생일을 축하합니다!">
+<meta property="og:description" content="10월 23일, 다목이들의 축하 메시지를 남겨주세요.">
+<meta property="og:image" content="assets/abyss-cat.jpg">
+<meta name="theme-color" content="#030a2e">
+<link rel="icon" href="assets/heart.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@500;700;800&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  /* Layout: a deep-sea descent. Banner hero on top, countdown, then the message wall sinking into darker water. */
+  :root {
+    --abyss: #030a2e;        /* deepest water, page ground */
+    --tide: #0a1a6b;         /* banner blue, raised surfaces */
+    --glass: rgba(120, 170, 255, .08);
+    --line: rgba(127, 255, 240, .22);
+    --fg: #e8f1ff;
+    --muted: #93a6d6;
+    --antler: #7ffff0;       /* cyan heart / antlers, the accent */
+    --eye: #ff3b4a;          /* red eyes, used once or twice only */
+    --display: "Hahmlet", "Nanum Myeongjo", "Noto Serif KR", serif;
+    --body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { background: var(--abyss); }
+  body {
+    margin: 0; min-height: 100vh; color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.65;
+    background: linear-gradient(180deg, #06135a 0%, var(--abyss) 38%, #01030f 100%);
+    overflow-x: hidden;
+  }
+  img { max-width: 100%; display: block; }
+  #bubbles { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  .wrap { position: relative; z-index: 1; max-width: 1120px; margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+  /* Hero */
+  .hero { position: relative; z-index: 1; overflow: hidden; }
+  .hero-bg { position: absolute; inset: 0; background: url("assets/banner.jpg") center right / cover no-repeat; opacity: .85; }
+  .hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(3,10,46,.1) 0%, rgba(3,10,46,.55) 60%, var(--abyss) 100%); }
+  .hero-inner { position: relative; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr); gap: 32px; align-items: center; padding-block: 56px 40px; }
+  .eyebrow { display: flex; align-items: center; gap: 12px; color: var(--antler); font-family: var(--mono); font-size: 13px; letter-spacing: .18em; text-transform: uppercase; }
+  .eyebrow img { width: 44px; height: auto; }
+  h1 { font-family: var(--display); font-weight: 800; font-size: clamp(36px, 6.4vw, 76px); line-height: 1.12; letter-spacing: -.02em; margin: 18px 0 14px; text-wrap: balance; text-shadow: 0 0 40px rgba(60, 120, 255, .45); }
+  h1 em { font-style: normal; color: var(--antler); }
+  .lede { color: #c6d4f5; max-width: 34em; margin: 0; font-size: 17px; }
+  .portrait { justify-self: center; position: relative; width: min(340px, 100%); aspect-ratio: 1; max-width: 100%; }
+  .portrait img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: 2px solid var(--line);
+    box-shadow: 0 0 0 10px rgba(127,255,240,.05), 0 0 80px rgba(80, 140, 255, .45); }
+  .portrait .date { position: absolute; right: -4px; bottom: 14px; background: var(--abyss); border: 1px solid var(--antler); color: var(--antler);
+    font-family: var(--display); font-weight: 700; padding: 6px 14px; border-radius: 999px; font-size: 15px; }
+
+  /* Countdown */
+  .count { margin-top: 28px; }
+  .count-label { color: var(--muted); font-size: 14px; margin-bottom: 10px; }
+  .count-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .unit { min-width: 78px; padding: 12px 14px 10px; border: 1px solid var(--line); background: rgba(3, 10, 46, .55); backdrop-filter: blur(6px); border-radius: 10px; text-align: center; }
+  .unit b { display: block; font-family: var(--mono); font-weight: 500; font-size: clamp(28px, 5vw, 40px); line-height: 1; font-variant-numeric: tabular-nums; color: #fff; }
+  .unit span { font-size: 12px; color: var(--muted); letter-spacing: .08em; }
+  .bday-now { font-family: var(--display); font-size: clamp(22px, 3.4vw, 30px); font-weight: 700; color: var(--antler); }
+
+  /* Sections */
+  section { padding-block: 40px; }
+  h2 { font-family: var(--display); font-weight: 700; font-size: clamp(24px, 3.4vw, 32px); margin: 0 0 6px; text-wrap: balance; }
+  .sub { color: var(--muted); margin: 0 0 22px; }
+  .write { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 32px; align-items: start; }
+  form { display: grid; gap: 12px; padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: linear-gradient(160deg, rgba(10,26,107,.55), rgba(3,10,46,.7)); }
+  label { font-size: 13px; color: var(--muted); display: grid; gap: 6px; }
+  input, textarea { font: inherit; color: var(--fg); background: rgba(1, 4, 20, .6); border: 1px solid rgba(147,166,214,.3); border-radius: 8px; padding: 10px 12px; width: 100%; }
+  textarea { min-height: 130px; resize: vertical; }
+  input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--antler); outline-offset: 2px; }
+  .form-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .counter { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  button { font: inherit; cursor: pointer; border-radius: 999px; border: 1px solid var(--antler); padding: 10px 20px; background: var(--antler); color: #021033; font-weight: 600; }
+  button.ghost { background: transparent; color: var(--antler); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .status { font-size: 14px; min-height: 1.4em; margin: 0; }
+  .status.err { color: #ffb3b9; }
+  .status.ok { color: var(--antler); }
+  .note { font-size: 13px; color: var(--muted); }
+  .preview-flag { font-size: 13px; color: #ffd28a; border: 1px dashed rgba(255,210,138,.5); padding: 8px 12px; border-radius: 8px; }
+
+  /* Wall */
+  .wall-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  .tally { font-family: var(--display); font-size: 18px; }
+  .tally b { color: var(--antler); font-variant-numeric: tabular-nums; }
+  .wall { columns: 3 280px; column-gap: 16px; }
+  .msg { break-inside: avoid; margin: 0 0 16px; padding: 16px 18px; border-radius: 14px; background: var(--glass); border: 1px solid rgba(147,166,214,.16); }
+  .msg p { margin: 0 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg footer { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
+  .msg footer b { color: var(--antler); font-weight: 600; }
+  .msg.fresh { animation: rise .8s ease-out; }
+  @keyframes rise { from { transform: translateY(14px); border-color: var(--antler); } to { transform: none; } }
+  .empty { padding: 40px 20px; text-align: center; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); }
+  .empty img { width: 64px; margin: 0 auto 12px; opacity: .7; }
+
+  /* Stream mode */
+  .stage { position: fixed; inset: 0; z-index: 50; display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(ellipse at 70% 20%, #0b2296 0%, var(--abyss) 55%, #000 100%);
+    padding: max(20px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px)); }
+  .stage-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .stage-top .brand { display: flex; align-items: center; gap: 12px; font-family: var(--display); font-weight: 700; font-size: clamp(16px, 2vw, 22px); }
+  .stage-top img { width: 40px; }
+  .stage-card { align-self: center; justify-self: center; max-width: 980px; width: 100%; text-align: center; }
+  .stage-card p { font-family: var(--display); font-weight: 500; font-size: clamp(22px, 3.6vw, 46px); line-height: 1.45; margin: 0 0 26px; white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: balance; }
+  .stage-card .who { color: var(--antler); font-size: clamp(16px, 2vw, 24px); }
+  .stage-card.swap { animation: fade .6s ease; }
+  @keyframes fade { from { opacity: .2; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .stage-bot { display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .pos { font-family: var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; min-width: 90px; text-align: center; }
+
+  footer.site { padding-block: 32px 48px; color: var(--muted); font-size: 13px; text-align: center; }
+  footer.site .eye { color: var(--eye); }
+
+  @media (max-width: 760px) {
+    .hero-inner { grid-template-columns: minmax(0, 1fr); padding-block: 36px 24px; }
+    .portrait { order: -1; width: min(220px, 70%); }
+    .write { grid-template-columns: minmax(0, 1fr); }
+    .unit { min-width: 0; flex: 1 1 60px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .msg.fresh, .stage-card.swap { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="bubbles" aria-hidden="true"></canvas>
+
+<header class="hero">
+  <div class="hero-bg"></div>
+  <div class="wrap hero-inner">
+    <div>
+      <div class="eyebrow"><img src="assets/heart.png" alt=""> Abyss · 10.23</div>
+      <h1>어비스의 생일을<br><em>축하합니다!</em></h1>
+      <p class="lede">깊은 바다에서 올라온 다목이들의 마음을 한곳에 모았어요. 아래에 축하 메시지를 남기면 생일 방송에서 어비스에게 전해집니다.</p>
+      <div class="count" id="count" aria-live="polite">
+        <div class="count-label" id="countLabel">10월 23일 0시까지</div>
+        <div class="count-row" id="countRow">
+          <div class="unit"><b id="cd-d">--</b><span>일</span></div>
+          <div class="unit"><b id="cd-h">--</b><span>시간</span></div>
+          <div class="unit"><b id="cd-m">--</b><span>분</span></div>
+          <div class="unit"><b id="cd-s">--</b><span>초</span></div>
+        </div>
+      </div>
+    </div>
+    <figure class="portrait" style="margin:0">
+      <img src="assets/abyss-cat.jpg" alt="머리 위에 하얀 고양이를 얹고 웃는 어비스">
+      <span class="date">10월 23일</span>
+    </figure>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="write" id="write">
+    <div>
+      <h2>축하 한마디 남기기</h2>
+      <p class="sub">닉네임과 메시지를 적어주세요. 남긴 메시지는 모두가 함께 볼 수 있어요.</p>
+      <p class="note">메시지는 한 번 올리면 수정할 수 없어요. 따뜻한 말로 채워주세요.</p>
+      <p class="preview-flag" id="previewFlag" hidden>미리보기 모드예요. 지금 쓴 메시지는 이 브라우저에만 저장됩니다.</p>
+    </div>
+    <form id="form" novalidate>
+      <label for="name">닉네임 (20자까지)
+        <input id="name" name="name" maxlength="20" placeholder="다목이" autocomplete="nickname">
+      </label>
+      <label for="text">메시지
+        <textarea id="text" name="text" maxlength="300" placeholder="어비스, 생일 축하해! 올해도 깊은 바다에서 함께할게." required></textarea>
+      </label>
+      <div class="form-foot">
+        <span class="counter" id="counter">0 / 300</span>
+        <button type="submit" id="send">축하 보내기</button>
+      </div>
+      <p class="status" id="status" role="status"></p>
+    </form>
+  </section>
+
+  <section id="wall-section">
+    <div class="wall-head">
+      <div>
+        <h2>다목이들의 축하</h2>
+        <div class="tally"><b id="tally">0</b>개의 축하가 도착했어요</div>
+      </div>
+      <button type="button" class="ghost" id="stageOpen">방송용 크게 보기</button>
+    </div>
+    <div class="wall" id="wall"></div>
+    <div class="empty" id="empty">
+      <img src="assets/heart.png" alt="">
+      아직 도착한 축하가 없어요. 첫 번째 다목이가 되어주세요.
+    </div>
+  </section>
+</main>
+
+<footer class="site wrap">다목이들이 어비스에게 <span class="eye">♥</span> 2026.10.23</footer>
+
+<div class="stage" id="stage" hidden role="dialog" aria-modal="true" aria-label="방송용 메시지 보기">
+  <div class="stage-top">
+    <div class="brand"><img src="assets/heart.png" alt="">어비스의 생일을 축하합니다!</div>
+    <button type="button" class="ghost" id="stageClose">닫기 (Esc)</button>
+  </div>
+  <div class="stage-card" id="stageCard">
+    <p id="stageText"></p>
+    <div class="who" id="stageWho"></div>
+  </div>
+  <div class="stage-bot">
+    <button type="button" class="ghost" id="prev" aria-label="이전 메시지">← 이전</button>
+    <span class="pos" id="pos">0 / 0</span>
+    <button type="button" class="ghost" id="next" aria-label="다음 메시지">다음 →</button>
+    <button type="button" class="ghost" id="auto">자동 넘김 켜짐</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const BIRTHDAY = new Date("2026-10-23T00:00:00+09:00").getTime();
+const DAY_END = new Date("2026-10-24T00:00:00+09:00").getTime();
+
+/* ---------- Countdown ---------- */
+const pad = (n) => String(n).padStart(2, "0");
+function tick() {
+  const now = Date.now();
+  if (now < BIRTHDAY) {
+    let s = Math.floor((BIRTHDAY - now) / 1000);
+    $("cd-d").textContent = Math.floor(s / 86400); s %= 86400;
+    $("cd-h").textContent = pad(Math.floor(s / 3600)); s %= 3600;
+    $("cd-m").textContent = pad(Math.floor(s / 60));
+    $("cd-s").textContent = pad(s % 60);
+  } else {
+    $("countLabel").hidden = true;
+    $("countRow").outerHTML = now < DAY_END
+      ? '<div class="bday-now">오늘은 어비스의 생일이에요! 🎂</div>'
+      : '<div class="bday-now">함께 축하해준 다목이들, 고마워요.</div>';
+    return;
+  }
+  setTimeout(tick, 1000 - (Date.now() % 1000));
+}
+tick();
+
+/* ---------- Messages store ---------- */
+let messages = [];
+let store, loadFailed = false;
+
+async function firebaseStore(cfg) {
+  const v = "10.12.2";
+  const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+  const fs = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore.js`);
+  const db = fs.getFirestore(initializeApp(cfg));
+  const col = fs.collection(db, "messages");
+  return {
+    subscribe(cb, onErr) {
+      fs.onSnapshot(fs.query(col, fs.orderBy("createdAt", "desc"), fs.limit(2000)), (snap) => {
+        cb(snap.docs.map((d) => {
+          const x = d.data();
+          return { id: d.id, name: x.name, text: x.text, at: x.createdAt ? x.createdAt.toMillis() : Date.now() };
+        }));
+      }, onErr);
+    },
+    add: (name, text) => fs.addDoc(col, { name, text, createdAt: fs.serverTimestamp() }),
+  };
+}
+
+function localStore() {
+  const KEY = "abyss-preview-messages";
+  const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } };
+  let cb = () => {};
+  return {
+    subscribe(fn) { cb = fn; fn(read()); },
+    async add(name, text) {
+      const list = [{ id: String(Date.now()), name, text, at: Date.now() }, ...read()];
+      try { localStorage.setItem(KEY, JSON.stringify(list)); } catch {}
+      cb(list);
+    },
+  };
+}
+
+/* ---------- Wall ---------- */
+const seen = new Set();
+let firstLoad = true;
+const timeFmt = new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" });
+
+function render(list) {
+  messages = list;
+  $("tally").textContent = list.length.toLocaleString("ko-KR");
+  $("empty").hidden = list.length > 0;
+  const wall = $("wall");
+  const frag = document.createDocumentFragment();
+  for (const m of list) {
+    const el = document.createElement("article");
+    el.className = "msg" + (!firstLoad && !seen.has(m.id) ? " fresh" : "");
+    const p = document.createElement("p"); p.textContent = m.text;
+    const f = document.createElement("footer");
+    const b = document.createElement("b"); b.textContent = m.name || "다목이";
+    const t = document.createElement("time"); t.textContent = timeFmt.format(m.at);
+    f.append(b, t); el.append(p, f); frag.append(el);
+    seen.add(m.id);
+  }
+  wall.replaceChildren(frag);
+  firstLoad = false;
+  if (!$("stage").hidden) showStage();
+}
+
+/* ---------- Form ---------- */
+const NAME_KEY = "abyss-nick";
+try { $("name").value = localStorage.getItem(NAME_KEY) || ""; } catch {}
+$("text").addEventListener("input", () => { $("counter").textContent = `${$("text").value.length} / 300`; });
+
+let lastSent = 0;
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const status = $("status");
+  const name = $("name").value.trim().slice(0, 20) || "다목이";
+  const text = $("text").value.trim().slice(0, 300);
+  status.className = "status";
+  if (!text) { status.className = "status err"; status.textContent = "메시지를 한 글자 이상 적어주세요."; return; }
+  if (Date.now() - lastSent < 20000) { status.className = "status err"; status.textContent = "잠시 뒤에 다시 보내주세요. 20초에 한 번 보낼 수 있어요."; return; }
+  if (loadFailed) { status.className = "status err"; status.textContent = "게시판을 불러오지 못했어요. 새로고침한 뒤 다시 보내주세요."; return; }
+  if (!store) { status.className = "status err"; status.textContent = "게시판에 연결하는 중이에요. 잠시 뒤에 다시 눌러주세요."; return; }
+  $("send").disabled = true; status.textContent = "보내는 중…";
+  try {
+    await store.add(name, text);
+    lastSent = Date.now();
+    try { localStorage.setItem(NAME_KEY, name); } catch {}
+    $("text").value = ""; $("counter").textContent = "0 / 300";
+    status.className = "status ok"; status.textContent = "축하가 도착했어요! 아래 게시판에서 확인해보세요.";
+  } catch (err) {
+    console.error(err);
+    status.className = "status err"; status.textContent = "보내지 못했어요. 인터넷 연결을 확인하고 다시 눌러주세요.";
+  } finally { $("send").disabled = false; }
+});
+
+/* ---------- Stream mode ---------- */
+let idx = 0, autoOn = true, autoTimer = null;
+function ordered() { return [...messages].reverse(); } // oldest first, so the story builds up
+function showStage(animate) {
+  const list = ordered();
+  if (!list.length) { $("stageText").textContent = "아직 도착한 축하가 없어요."; $("stageWho").textContent = ""; $("pos").textContent = "0 / 0"; return; }
+  idx = (idx + list.length) % list.length;
+  const m = list[idx];
+  $("stageText").textContent = m.text;
+  $("stageWho").textContent = `— ${m.name || "다목이"}`;
+  $("pos").textContent = `${idx + 1} / ${list.length}`;
+  if (animate) { const c = $("stageCard"); c.classList.remove("swap"); void c.offsetWidth; c.classList.add("swap"); }
+}
+function step(d) { idx += d; showStage(true); restartAuto(); }
+function restartAuto() {
+  clearInterval(autoTimer);
+  if (autoOn && !$("stage").hidden) autoTimer = setInterval(() => { idx++; showStage(true); }, 7000);
+}
+$("stageOpen").onclick = () => {
+  $("stage").hidden = false; idx = 0; showStage(true); restartAuto();
+  document.documentElement.requestFullscreen?.().catch(() => {});
+};
+function closeStage() {
+  $("stage").hidden = true; clearInterval(autoTimer);
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+}
+$("stageClose").onclick = closeStage;
+$("prev").onclick = () => step(-1);
+$("next").onclick = () => step(1);
+$("auto").onclick = () => { autoOn = !autoOn; $("auto").textContent = autoOn ? "자동 넘김 켜짐" : "자동 넘김 꺼짐"; restartAuto(); };
+document.addEventListener("keydown", (e) => {
+  if ($("stage").hidden) return;
+  if (e.key === "Escape") closeStage();
+  if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); step(1); }
+  if (e.key === "ArrowLeft") step(-1);
+});
+
+/* ---------- Boot ---------- */
+(async () => {
+  const cfg = window.FIREBASE_CONFIG;
+  try {
+    store = cfg ? await firebaseStore(cfg) : localStore();
+  } catch (err) {
+    console.error(err);
+    loadFailed = true;
+    $("status").className = "status err";
+    $("status").textContent = "게시판을 불러오지 못했어요. 새로고침해주세요.";
+    return;
+  }
+  if (!cfg) $("previewFlag").hidden = false;
+  store.subscribe(render, (err) => {
+    console.error(err);
+    $("status").className = "status err";
+    $("status").textContent = "메시지를 불러오지 못했어요. 새로고침해주세요.";
+  });
+})();
+
+/* ---------- Bubbles ---------- */
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const cv = $("bubbles"), ctx = cv.getContext("2d");
+let W, H, dots = [];
+function size() {
+  const r = devicePixelRatio || 1; W = innerWidth; H = innerHeight;
+  cv.width = W * r; cv.height = H * r; ctx.setTransform(r, 0, 0, r, 0, 0);
+}
+size(); addEventListener("resize", size);
+for (let i = 0; i < 46; i++) dots.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 2.2 + .4, v: Math.random() * .35 + .08, w: Math.random() * 6.28, c: Math.random() < .25 });
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  for (const d of dots) {
+    if (!reduce) { d.y -= d.v; d.w += .01; if (d.y < -10) { d.y = H + 10; d.x = Math.random() * W; } }
+    ctx.beginPath(); ctx.arc(d.x + Math.sin(d.w) * 6, d.y, d.r, 0, 6.29);
+    ctx.fillStyle = d.c ? "rgba(127,255,240,.5)" : "rgba(110,150,255,.45)"; ctx.fill();
+  }
+  if (!reduce) requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

@@ -111,6 +111,25 @@
   .empty { padding: 40px 20px; text-align: center; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); }
   .empty img { width: 64px; margin: 0 auto 12px; opacity: .7; }
 
+  /* Abyss-only admin */
+  .admin-btn { position: fixed; z-index: 30; top: calc(10px + env(safe-area-inset-top, 0px)); left: calc(10px + env(safe-area-inset-left, 0px));
+    font-size: 12px; padding: 5px 11px; background: rgba(3,10,46,.6); color: var(--muted); border-color: rgba(147,166,214,.35); backdrop-filter: blur(6px); }
+  .admin-btn.on { color: #021033; background: var(--antler); border-color: var(--antler); }
+  .modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(1,3,15,.72);
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .modal form { width: min(360px, 100%); }
+  .modal h3 { font-family: var(--display); margin: 0; font-size: 20px; }
+  .modal input { font-family: var(--mono); letter-spacing: .3em; font-size: 20px; text-align: center; }
+  .modal .row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .tools { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(147,166,214,.25); }
+  .tools button { font-size: 13px; padding: 5px 12px; }
+  .tools button.danger { background: transparent; color: #ffb3b9; border-color: rgba(255,59,74,.6); }
+  .tools button.danger.confirm { background: var(--eye); color: #fff; border-color: var(--eye); }
+  .msg.editing { border-color: var(--antler); }
+  .msg.editing input, .msg.editing textarea { margin-bottom: 8px; }
+  .msg.editing textarea { min-height: 100px; }
+  .msg .edited { font-size: 12px; color: var(--muted); margin-left: 6px; }
+
   /* Stream mode */
   .stage { position: fixed; inset: 0; z-index: 50; display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(ellipse at 70% 20%, #0b2296 0%, var(--abyss) 55%, #000 100%);
     padding: max(20px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px)); }
@@ -140,6 +159,21 @@
 <body>
 <canvas id="bubbles" aria-hidden="true"></canvas>
 <canvas id="fireworks" aria-hidden="true"></canvas>
+<button type="button" class="ghost admin-btn" id="adminBtn" hidden>어비스 전용</button>
+<div class="modal" id="adminModal" hidden role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+  <form id="adminForm" novalidate>
+    <h3 id="adminTitle">어비스 전용</h3>
+    <p class="note" style="margin:0">암호를 입력하면 메시지를 수정하거나 지울 수 있어요.</p>
+    <label for="adminPw">암호 8자리
+      <input id="adminPw" type="password" inputmode="numeric" maxlength="8" autocomplete="off">
+    </label>
+    <p class="status" id="adminStatus" role="status"></p>
+    <div class="row">
+      <button type="button" class="ghost" id="adminCancel">닫기</button>
+      <button type="submit" id="adminGo">들어가기</button>
+    </div>
+  </form>
+</div>
 
 <header class="hero">
   <div class="hero-bg"></div>
@@ -315,19 +349,31 @@ tick(true);
 /* ---------- Messages store ---------- */
 let messages = [];
 let store, loadFailed = false;
+// 어비스 전용 계정. 암호는 코드에 없고 Firebase 로그인이 확인해요.
+const ADMIN_EMAIL = "abyss-only@abyss-birthday.app";
+let isAdmin = false, draft = null, confirmId = null;
 
 async function firebaseStore(cfg) {
   const v = "10.12.2";
   const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
   const fs = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore.js`);
-  const db = fs.getFirestore(initializeApp(cfg));
+  const auth = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-auth.js`);
+  const app = initializeApp(cfg);
+  const db = fs.getFirestore(app);
+  const au = auth.getAuth(app);
   const col = fs.collection(db, "messages");
   return {
+    adminSupported: true,
+    onAdmin: (cb) => auth.onAuthStateChanged(au, (u) => cb(!!u && u.email === ADMIN_EMAIL)),
+    signIn: (pw) => auth.signInWithEmailAndPassword(au, ADMIN_EMAIL, pw),
+    signOut: () => auth.signOut(au),
+    update: (id, name, text) => fs.updateDoc(fs.doc(db, "messages", id), { name, text, editedAt: fs.serverTimestamp() }),
+    remove: (id) => fs.deleteDoc(fs.doc(db, "messages", id)),
     subscribe(cb, onErr) {
       fs.onSnapshot(fs.query(col, fs.orderBy("createdAt", "desc"), fs.limit(2000)), (snap) => {
         cb(snap.docs.map((d) => {
           const x = d.data();
-          return { id: d.id, name: x.name, text: x.text, at: x.createdAt ? x.createdAt.toMillis() : Date.now() };
+          return { id: d.id, name: x.name, text: x.text, at: x.createdAt ? x.createdAt.toMillis() : Date.now(), edited: !!x.editedAt };
         }));
       }, onErr);
     },
@@ -363,17 +409,77 @@ function render(list) {
   for (const m of list) {
     const el = document.createElement("article");
     el.className = "msg" + (!firstLoad && !seen.has(m.id) ? " fresh" : "");
+    if (isAdmin && draft && draft.id === m.id) { frag.append(editCard(el)); seen.add(m.id); continue; }
     const p = document.createElement("p"); p.textContent = m.text;
     const f = document.createElement("footer");
     const b = document.createElement("b"); b.textContent = m.name || "다목이";
+    if (m.edited) { const e = document.createElement("span"); e.className = "edited"; e.textContent = "(수정됨)"; b.append(e); }
     const t = document.createElement("time"); t.textContent = timeFmt.format(m.at);
-    f.append(b, t); el.append(p, f); frag.append(el);
+    f.append(b, t); el.append(p, f);
+    if (isAdmin) el.append(adminTools(m));
+    frag.append(el);
     seen.add(m.id);
   }
   wall.replaceChildren(frag);
   firstLoad = false;
   if (!$("stage").hidden) showStage();
 }
+
+/* ---------- Abyss-only editing ---------- */
+function btn(label, cls, fn) { const x = document.createElement("button"); x.type = "button"; x.className = cls; x.textContent = label; x.onclick = fn; return x; }
+function adminTools(m) {
+  const box = document.createElement("div"); box.className = "tools";
+  box.append(btn("수정", "ghost", () => { draft = { id: m.id, name: m.name || "", text: m.text }; confirmId = null; render(messages); }));
+  const del = btn(confirmId === m.id ? "정말 지울까요? 한 번 더 누르면 삭제" : "삭제", "danger" + (confirmId === m.id ? " confirm" : ""), async () => {
+    if (confirmId !== m.id) { confirmId = m.id; render(messages); return; }
+    confirmId = null; del.disabled = true; del.textContent = "지우는 중…";
+    try { await store.remove(m.id); } catch (err) { console.error(err); del.disabled = false; del.textContent = "삭제하지 못했어요. 다시 눌러주세요"; }
+  });
+  box.append(del);
+  return box;
+}
+function editCard(el) {
+  el.className = "msg editing";
+  const n = document.createElement("input"); n.maxLength = 20; n.value = draft.name; n.setAttribute("aria-label", "닉네임");
+  const t = document.createElement("textarea"); t.maxLength = 300; t.value = draft.text; t.setAttribute("aria-label", "메시지");
+  n.oninput = () => { draft.name = n.value; }; t.oninput = () => { draft.text = t.value; };
+  const msg = document.createElement("p"); msg.className = "status";
+  const box = document.createElement("div"); box.className = "tools";
+  const save = btn("저장", "", async () => {
+    const name = draft.name.trim().slice(0, 20) || "다목이", text = draft.text.trim().slice(0, 300);
+    if (!text) { msg.className = "status err"; msg.textContent = "메시지를 비워둘 수 없어요. 지우려면 삭제를 눌러주세요."; return; }
+    save.disabled = true; save.textContent = "저장 중…";
+    try { const id = draft.id; draft = null; await store.update(id, name, text); }
+    catch (err) { console.error(err); draft = { id: el.dataset.id, name, text }; render(messages); }
+  });
+  box.append(save, btn("취소", "ghost", () => { draft = null; render(messages); }));
+  el.dataset.id = draft.id;
+  el.append(n, t, msg, box);
+  return el;
+}
+function setAdmin(on) {
+  isAdmin = on; if (!on) { draft = null; confirmId = null; }
+  $("adminBtn").classList.toggle("on", on);
+  $("adminBtn").textContent = on ? "어비스 모드 · 나가기" : "어비스 전용";
+  render(messages);
+}
+$("adminBtn").onclick = () => {
+  if (isAdmin) { store.signOut(); return; }
+  $("adminModal").hidden = false; $("adminStatus").textContent = ""; $("adminPw").value = ""; $("adminPw").focus();
+};
+$("adminCancel").onclick = () => { $("adminModal").hidden = true; };
+$("adminModal").addEventListener("click", (e) => { if (e.target === $("adminModal")) $("adminModal").hidden = true; });
+$("adminForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const pw = $("adminPw").value.trim(), st = $("adminStatus");
+  if (!/^\d{8}$/.test(pw)) { st.className = "status err"; st.textContent = "숫자 8자리를 입력해주세요."; return; }
+  $("adminGo").disabled = true; st.className = "status"; st.textContent = "확인하는 중…";
+  try { await store.signIn(pw); $("adminModal").hidden = true; }
+  catch (err) {
+    console.error(err); st.className = "status err";
+    st.textContent = err && err.code === "auth/too-many-requests" ? "너무 많이 시도했어요. 잠시 뒤에 다시 해주세요." : "암호가 맞지 않아요.";
+  } finally { $("adminGo").disabled = false; }
+});
 
 /* ---------- Form ---------- */
 const NAME_KEY = "abyss-nick";
@@ -435,6 +541,7 @@ $("prev").onclick = () => step(-1);
 $("next").onclick = () => step(1);
 $("auto").onclick = () => { autoOn = !autoOn; $("auto").textContent = autoOn ? "자동 넘김 켜짐" : "자동 넘김 꺼짐"; restartAuto(); };
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("adminModal").hidden) { $("adminModal").hidden = true; return; }
   if ($("stage").hidden) return;
   if (e.key === "Escape") closeStage();
   if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); step(1); }
@@ -454,6 +561,7 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (!cfg) $("previewFlag").hidden = false;
+  if (store.adminSupported) { $("adminBtn").hidden = false; store.onAdmin(setAdmin); }
   store.subscribe(render, (err) => {
     console.error(err);
     $("status").className = "status err";

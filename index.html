@@ -66,6 +66,15 @@
   .unit b { display: block; font-family: var(--mono); font-weight: 500; font-size: clamp(28px, 5vw, 40px); line-height: 1; font-variant-numeric: tabular-nums; color: #fff; }
   .unit span { font-size: 12px; color: var(--muted); letter-spacing: .08em; }
   .bday-now { font-family: var(--display); font-size: clamp(22px, 3.4vw, 30px); font-weight: 700; color: var(--antler); }
+  .bday-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  #fireworks { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 42; }
+  .celebrate { position: fixed; inset: 0; z-index: 41; display: grid; place-items: center; pointer-events: none; text-align: center; background: radial-gradient(ellipse at center, rgba(1,4,20,.82) 0%, rgba(1,4,20,.55) 60%, rgba(1,4,20,.25) 100%);
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); animation: celebrate 7s ease forwards; }
+  .celebrate img { width: clamp(70px, 12vw, 120px); margin: 0 auto 14px; }
+  .celebrate .big { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 8vw, 96px); line-height: 1.1; text-shadow: 0 0 30px rgba(127,255,240,.6), 0 0 80px rgba(60,120,255,.8); }
+  .celebrate .big em { font-style: normal; color: var(--antler); }
+  .celebrate .small { margin-top: 12px; font-size: clamp(16px, 2.4vw, 24px); color: #fff; text-shadow: 0 0 20px rgba(0,0,0,.8); }
+  @keyframes celebrate { 0% { opacity: 0; transform: scale(.85); } 10% { opacity: 1; transform: scale(1.04); } 16% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
 
   /* Sections */
   section { padding-block: 40px; }
@@ -130,6 +139,7 @@
 </head>
 <body>
 <canvas id="bubbles" aria-hidden="true"></canvas>
+<canvas id="fireworks" aria-hidden="true"></canvas>
 
 <header class="hero">
   <div class="hero-bg"></div>
@@ -216,12 +226,14 @@
 <script src="config.js"></script>
 <script type="module">
 const $ = (id) => document.getElementById(id);
-const BIRTHDAY = new Date("2026-10-23T00:00:00+09:00").getTime();
-const DAY_END = new Date("2026-10-24T00:00:00+09:00").getTime();
+// ?preview=midnight 로 열면 10초 뒤 0시 이벤트를 미리 볼 수 있어요.
+const PREVIEW = new URLSearchParams(location.search).get("preview") === "midnight";
+const BIRTHDAY = PREVIEW ? Date.now() + 10000 : new Date("2026-10-23T00:00:00+09:00").getTime();
+const DAY_END = PREVIEW ? BIRTHDAY + 86400000 : new Date("2026-10-24T00:00:00+09:00").getTime();
 
 /* ---------- Countdown ---------- */
 const pad = (n) => String(n).padStart(2, "0");
-function tick() {
+function tick(first) {
   const now = Date.now();
   if (now < BIRTHDAY) {
     let s = Math.floor((BIRTHDAY - now) / 1000);
@@ -231,14 +243,74 @@ function tick() {
     $("cd-s").textContent = pad(s % 60);
   } else {
     $("countLabel").hidden = true;
-    $("countRow").outerHTML = now < DAY_END
-      ? '<div class="bday-now">오늘은 어비스의 생일이에요! 🎂</div>'
-      : '<div class="bday-now">함께 축하해준 다목이들, 고마워요.</div>';
+    if (now < DAY_END) {
+      $("countRow").outerHTML = '<div class="bday-row"><div class="bday-now">오늘은 어비스의 생일이에요! 🎂</div><button type="button" class="ghost" id="again">폭죽 다시 터뜨리기</button></div>';
+      $("again").onclick = () => celebrate(false);
+      // 0시를 함께 맞이한 사람에게는 크게, 생일 당일에 들어온 사람에게는 짧게 터뜨려요.
+      celebrate(!first);
+    } else {
+      $("countRow").outerHTML = '<div class="bday-now">함께 축하해준 다목이들, 고마워요.</div>';
+    }
     return;
   }
-  setTimeout(tick, 1000 - (Date.now() % 1000));
+  setTimeout(() => tick(false), 1000 - (Date.now() % 1000));
 }
-tick();
+
+/* ---------- Midnight fireworks ---------- */
+const fw = $("fireworks"), fctx = fw.getContext("2d");
+const COLORS = ["#7ffff0", "#ffffff", "#ffb3d1", "#6f9bff", "#3fd8ff", "#ff3b4a"];
+let sparks = [], rockets = [], fwUntil = 0, fwRunning = false;
+function fwSize() { const r = devicePixelRatio || 1; fw.width = innerWidth * r; fw.height = innerHeight * r; fctx.setTransform(r, 0, 0, r, 0, 0); }
+fwSize(); addEventListener("resize", fwSize);
+function launch() {
+  const W = innerWidth, H = innerHeight;
+  rockets.push({ x: W * (.15 + Math.random() * .7), y: H + 10, vx: (Math.random() - .5) * 1.5, vy: -(H / 75 + Math.random() * 4), ty: H * (.15 + Math.random() * .35), c: COLORS[Math.floor(Math.random() * COLORS.length)] });
+}
+function burst(x, y, c) {
+  const n = 70 + Math.floor(Math.random() * 40), alt = COLORS[Math.floor(Math.random() * COLORS.length)];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2, sp = 2 + Math.random() * 4.5;
+    sparks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: .010 + Math.random() * .012, c: Math.random() < .3 ? alt : c });
+  }
+}
+function fwFrame() {
+  const now = Date.now();
+  fctx.globalCompositeOperation = "destination-out";
+  fctx.fillStyle = "rgba(0,0,0,.22)"; fctx.fillRect(0, 0, innerWidth, innerHeight);
+  fctx.globalCompositeOperation = "lighter";
+  if (now < fwUntil && Math.random() < .09) launch();
+  for (const r of rockets) {
+    r.x += r.vx; r.y += r.vy; r.vy += .12;
+    fctx.fillStyle = r.c; fctx.beginPath(); fctx.arc(r.x, r.y, 2.2, 0, 6.29); fctx.fill();
+    if (r.y <= r.ty || r.vy >= 0) { r.done = true; burst(r.x, r.y, r.c); }
+  }
+  rockets = rockets.filter((r) => !r.done);
+  for (const p of sparks) {
+    p.x += p.vx; p.y += p.vy; p.vx *= .985; p.vy = p.vy * .985 + .05; p.life -= p.decay;
+    fctx.globalAlpha = Math.max(p.life, 0); fctx.fillStyle = p.c;
+    fctx.beginPath(); fctx.arc(p.x, p.y, 1.8, 0, 6.29); fctx.fill();
+  }
+  fctx.globalAlpha = 1;
+  sparks = sparks.filter((p) => p.life > 0);
+  if (now < fwUntil || rockets.length || sparks.length) requestAnimationFrame(fwFrame);
+  else { fwRunning = false; fctx.clearRect(0, 0, innerWidth, innerHeight); }
+}
+function celebrate(big) {
+  if (big) {
+    document.querySelector(".celebrate")?.remove();
+    const o = document.createElement("div");
+    o.className = "celebrate"; o.setAttribute("role", "status");
+    o.innerHTML = '<div><img src="assets/heart.png" alt=""><div class="big">Happy Birthday<br><em>어비스!</em></div><div class="small">10월 23일, 다목이들이 함께 축하해요</div></div>';
+    document.body.append(o);
+    setTimeout(() => o.remove(), 7200);
+  }
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  fwUntil = Date.now() + (big ? 12000 : 4000);
+  for (let i = 0; i < (big ? 5 : 3); i++) setTimeout(launch, i * 180);
+  if (!fwRunning) { fwRunning = true; requestAnimationFrame(fwFrame); }
+}
+
+tick(true);
 
 /* ---------- Messages store ---------- */
 let messages = [];
